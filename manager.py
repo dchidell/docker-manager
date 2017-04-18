@@ -1,3 +1,19 @@
+#!/usr/bin/python3
+#Author: David Chidell (dchidell)
+
+#################################
+#This script will automate the creation and deletion of containers and update their images
+#################################
+#The following configuration is performed as a result of this script:
+# * Container images updated
+# * Containers stopped and re-deployed
+# * Old images removed
+# * Removes old / not running containers
+##################################
+# Usage: 'manager.py -h'
+##################################
+#
+
 import docker
 import argparse
 import os
