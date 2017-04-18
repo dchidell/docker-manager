@@ -21,7 +21,6 @@ root@docker:/home/david/host_scripts# tree
 │   └── webapps
 │       ├── docker-compose.yml
 │       └── docker-compose.yml.save
-├── clean_images.sh
 ├── containers
 │   ├── picserver2.txt
 │   ├── picserver.txt
@@ -30,7 +29,7 @@ root@docker:/home/david/host_scripts# tree
 │   ├── portainer.old
 │   ├── syncthing.txt
 │   └── transmission.old
-├── docker_manager.py
+├── manager.py
 ```
 
 Where each application docker-compose file is in it's own directory. Each container definition should be an executable bash file containing something like the following:
