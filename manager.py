@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument("-r",help="Redeploy existing containers / apps",action="store_true")
     parser.add_argument("-p",help="Prune / delete stopped containers",action="store_true")
     parser.add_argument("-d",help="Delete redundant images",action="store_true")
+    parser.add_argument("-c",help="Run for containers only (requires -r)",action="store_true")
+    parser.add_argument("-a",help="Run for apps only (requires -r)",action="store_true")
     return parser.parse_args()
 
 def return_txt_file_names(dir):
@@ -37,7 +39,11 @@ def return_txt_file_names(dir):
 
 def exec_command(cmd,success,fail="",failcare=True):
     cmdlist = cmd.split(" ")
-    proc = subprocess.Popen(cmdlist,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    try:
+        proc = subprocess.Popen(cmdlist,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    except FileNotFoundError:
+        print('Error: Failed to run command: {}. Reason: No command was found with that name.'.format(cmd))
+        return False
     err = proc.stderr.read().decode("UTF-8")
     out = proc.stdout.read().decode("UTF-8")
 
@@ -111,40 +117,53 @@ def main():
         print("***Update complete. Processed {} images.".format(count))
 
     if args.r or argcount == 0:
-        files = os.listdir(container_dir)
-        container_names = [file.split(".")[0] for file in files if '.txt' in file]
-        containers = client.containers.list(all=True)
-        for container in containers:
-            if container.name in container_names:
+        if args.c or argcount == 0 or (args.c and not args.a):
+            print("***Processing containers...")
+            files = os.listdir(container_dir)
+            container_names = [file.split(".")[0] for file in files if '.txt' in file]
+            containers = client.containers.list(all=True)
+            for container in containers:
+                if container.name in container_names:
+                    print("***Stopping and deleting container: "+container.name)
+                    container.stop()
+                    container.remove()
+                    print("***Re-creating container: "+container.name)
+                    out = exec_command("bash {}{}.txt".format(container_dir,container.name),"***Container created successfully! Starting up...","***Error detected")
+                    if out:
+                        new_container = client.containers.get(out.strip())
+                        new_container.start()
 
-                print("***Stopping and deleting container: "+container.name)
-                container.stop()
-                container.remove()
-                print("***Re-creating container: "+container.name)
-                out = exec_command("bash {}{}.txt".format(container_dir,container.name),"***Container created successfully! Starting up...","***Error detected")
-                if out:
-                    new_container = client.containers.get(out.strip())
-                    new_container.start()
+        if args.a or argcount == 0 or (args.a and not args.c):
+            print("***Processing apps...")
+            if(not exec_command("docker-compose --help","***Docker-compose was found!")):
+                print('Error: Docker-compose was not found. Exiting!')
+                exit()
 
-        app_names = os.listdir(app_dir)
-        for app in app_names:
-            print("***Found app: "+app)
-            print("***Stopping app...")
-            exec_command("docker-compose -f {}{}/docker-compose.yml stop".format(app_dir,app),"***App stopped successfully!",failcare=False)
-            exec_command("docker-compose -f {}{}/docker-compose.yml rm -f".format(app_dir,app),"***App deleted successfully!",failcare=False)
-            exec_command("docker-compose -f {}{}/docker-compose.yml up -d".format(app_dir,app),"***App started successfully!",failcare=False)
+            app_names = os.listdir(app_dir)
+            for app in app_names:
+                print("***Found app: "+app)
+                print("***Stopping app...")
+                exec_command("docker-compose -f {}{}/docker-compose.yml stop".format(app_dir,app),"***App stopped successfully!",failcare=False)
+                exec_command("docker-compose -f {}{}/docker-compose.yml rm -f".format(app_dir,app),"***App deleted successfully!",failcare=False)
+                exec_command("docker-compose -f {}{}/docker-compose.yml up -d".format(app_dir,app),"***App started successfully!",failcare=False)
 
     if args.d or argcount == 0:
         images = find_unused_images(client.images.list(),client.containers.list(all=True))
         count = 0
-        for image in images:
-            print('***Redundant Image found: '+get_image_name(image))
-            try:
-                client.images.remove(image.attrs['Id'])
-            except docker.errors.APIError:
-                print('***Unable to remove {}. Likely it is a parent image.'.format(get_image_name(image)))
-            else:
-                count += 1
-        print('***{} redundant images removed.'.format(count))
+        if(len(images) > 0):
+            for image in images:
+                print('***Redundant Image found: '+get_image_name(image))
+                try:
+                    client.images.remove(image.attrs['Id'])
+                except docker.errors.APIError:
+                    print('***Unable to remove {}. Likely it is a parent image.'.format(get_image_name(image)))
+                else:
+                    count += 1
+            print('***{} redundant images removed.'.format(count))
+        else:
+            print('***No redundant images found.')
 
-main()
+try:
+    main()
+except KeyboardInterrupt:
+    print("***Interrupted! Exiting.")
