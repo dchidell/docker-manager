@@ -2,7 +2,7 @@
 Manages docker containers.
 
 ```
-usage: docker_manager.py [-h] [-u] [-r] [-p] [-d]
+usage: docker_deploy.py [-h] [-u] [-r] [-p] [-d] [-c] [-a]
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -10,6 +10,8 @@ optional arguments:
   -r          Redeploy existing containers / apps
   -p          Prune / delete stopped containers
   -d          Delete redundant images
+  -c          Run for containers only (requires -r)
+  -a          Run for apps only (requires -r)
 ```
 
 Expects containers / docker-compose apps in the following structure:
