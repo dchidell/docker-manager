@@ -2,9 +2,9 @@
 #Author: David Chidell (dchidell)
 
 #################################
-#This script will automate the creation and deletion of containers and update their images
+# This script will automate the creation and deletion of containers and update their images
 #################################
-#The following configuration is performed as a result of this script:
+# The following configuration is performed as a result of this script:
 # * Container images updated
 # * Containers stopped and re-deployed
 # * Old images removed
@@ -12,15 +12,19 @@
 ##################################
 # Usage: 'manager.py -h'
 ##################################
-#
+# Requirements:
+# * Python libraries: docker, argparse, subprocess
+# * Internet connectivity for image download
+# * Access to the directory structure required
+##################################
 
 import docker
 import argparse
 import os
 import subprocess
 
-container_dir = 'containers/'
-app_dir = 'apps/'
+container_dir = './containers/'
+app_dir = './apps/'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -119,6 +123,10 @@ def main():
     if args.r or argcount == 0:
         if args.c or argcount == 0 or (args.c and not args.a):
             print("***Processing containers...")
+            if(not os.path.isdir(container_dir)):
+                print('Error: Cannot find container directory: {}'.format(container_dir))
+                exit()
+                
             files = os.listdir(container_dir)
             container_names = [file.split(".")[0] for file in files if '.txt' in file]
             containers = client.containers.list(all=True)
@@ -137,6 +145,10 @@ def main():
             print("***Processing apps...")
             if(not exec_command("docker-compose --help","***Docker-compose was found!")):
                 print('Error: Docker-compose was not found. Exiting!')
+                exit()
+
+            if(not os.path.isdir(app_dir)):
+                print('Error: Cannot find app directory: {}'.format(app_dir))
                 exit()
 
             app_names = os.listdir(app_dir)
